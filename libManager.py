@@ -1,4 +1,6 @@
 import subprocess
+import os
+import re
 
 class libManager:
     # Множество целевых библиотек (для установки/удаления)
@@ -24,7 +26,8 @@ class libManager:
                 requires = output[output.rfind("Requires: ") + 10:output.rfind("Required-by:") - 2].split(", ")
                 self._lib_details_[lib] = {
                     'required_by': set(required_by) if required_by != [''] else set(),
-                    'requires': set(requires) if requires != [''] else set()
+                    'requires': set(requires) if requires != [''] else set(),
+                    'version': re.search(r'\d\.\d\.\d', output[output.find("Version: ") + 9:]).group()
                 }
             else:
                 self._lib_details_[lib] = {'required_by': set(), 'requires': set()}
@@ -41,6 +44,35 @@ class libManager:
                 stack.extend(self.get_lib_details(current_lib)['requires'] - dependencies)
         dependencies.discard(lib)
         return dependencies
+
+    # Создаёт минимальный requirements.txt под проект
+    def create_actual_requirements(self, path_to_py: str)->None:
+        if os.path.isfile(path_to_py) and path_to_py.lower().endswith("py"):
+            stated_libs: set = set()
+            with open(path_to_py, 'r', encoding='utf-8') as file:
+                pattern = re.compile(r'\w++')
+                for line in file:
+                    cur_line: str = line.strip()
+                    if cur_line.startswith("from "):
+                        stated_libs.add(pattern.search(cur_line[5:]).group())
+                    elif cur_line.startswith("import "):
+                        stated_libs.add(pattern.search(cur_line[7:]).group())
+            self.get_installed_libs()
+            actual_libs: set = set(stated_libs)
+            
+            for lib in stated_libs:
+                if not lib in self._installed_libs_:
+                    actual_libs.remove(lib)
+            
+            if len(actual_libs) > 0:
+                special_char: str = '\\' if '\\' in path_to_py else '/'
+                with open(os.path.dirname(path_to_py)+f"{special_char}requirements.txt", 'w', encoding='utf-8') as file:
+                    for lib in actual_libs:
+                        version = self.get_lib_details(lib)["version"]
+                        file.write(f"{lib}=={version}\n")
+            else:
+                print(f"В {os.path.split(path_to_py)[1]} не были обнаружены никакие внешние библиотеки! Перепроверьте")
+   
 
     # Устанавливает библиотеки из множества libraries_needed
     def init_libs(self):
@@ -69,6 +101,7 @@ class libManager:
             if can_delete_pip or lib != "pip": subprocess.call(['pip', 'uninstall', lib, '-y'])
             else: print(f"Модуль {lib} не будет удалён автоматически!\nЕсли есть необходимость сделать это, либо удалите его вручную, либо поставьте аргумент can_delete_pip на True")
         print("Все зависимые библиотеки были успешно удалены!")
+
 
     def __init__(self, target_libs: set, init_at_start: bool = True) -> None:
         self.libraries_needed = target_libs
