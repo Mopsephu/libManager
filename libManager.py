@@ -2,7 +2,7 @@ import subprocess
 import os
 import re
 
-class LibManager:
+class libManager:
     """
     A class to manage Python libraries for a project, allowing for automatic installation,
     details retrieval, dependency resolution, and requirements file creation.
@@ -144,12 +144,13 @@ class LibManager:
         """
         Installs the libraries in the libraries_needed set if they are not already installed.
         """
-        missing_libs = [lib for lib in self.libraries_needed if lib not in self.get_installed_libs()]
-        if missing_libs:
-            subprocess.call(['pip', 'install', *missing_libs])
-            print("All required libraries have been installed!")
-        else:
-            print("All required libraries are already installed!")
+        if self.libraries_needed != set():
+            missing_libs = [lib for lib in self.libraries_needed if lib not in self.get_installed_libs()]
+            if missing_libs:
+                subprocess.call(['pip', 'install', *missing_libs])
+                print("All required libraries have been installed!")
+            else:
+                print("All required libraries are already installed!")
 
     def deinit_libs(self, can_delete_pip: bool = False):
         """
@@ -177,7 +178,7 @@ class LibManager:
                 print(f"Module {lib} will not be automatically removed!\nTo remove it, delete manually or set can_delete_pip to True.")
         print("All dependent libraries have been successfully removed!")
 
-    def __init__(self, target_libs: set, init_at_start: bool = True) -> None:
+    def __init__(self, target_libs: set = set(), init_at_start: bool = True) -> None:
         """
         Initializes the LibManager with a set of target libraries.
 
