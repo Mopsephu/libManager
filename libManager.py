@@ -38,17 +38,43 @@ class LibManager:
             lib (str): The name of the library to retrieve details for.
 
         Returns:
-            dict: Library details with 'required_by', 'requires', and 'version' keys.
+            dict: Library details with keys:
+                                        'version',
+                                        'summary',
+                                        'home-page',
+                                        'author',
+                                        'author-email',
+                                        'license',
+                                        'location',
+                                        'requires',
+                                        'required_by'.
         """
         if lib not in self._lib_details_:
             if lib in self.get_installed_libs():
                 output = subprocess.check_output(['pip', 'show', lib]).decode('utf-8')
-                required_by = output[output.rfind("Required-by:") + 13:].strip().split(", ")
-                requires = output[output.rfind("Requires: ") + 10:output.rfind("Required-by:") - 2].split(", ")
+                VersText: int = output.find("Version: ")+9
+                SumText: int = output.find("Summary: ", VersText)+9
+                HmPgText: int = output.find("Home-page: ", SumText)+11
+                AuthText: int = output.find("Author: ", HmPgText)+8
+                AuthMailText: int = output.find("Author-email: ", AuthText)+14
+                LicText: int = output.find("License: ", AuthMailText)+9
+                LocText: int = output.find("Location: ", LicText)+10
+                ReqText: int = output.find("Requires: ", LocText)+10
+                ReqByText: int = output.find("Required-by: ", ReqText)+13
+
+                #Индексация идёт так: [a, b)
+                requires = output[ReqText : ReqByText - 13].strip().split(", ")
+                required_by = output[ReqByText : ].strip().split(", ")
                 self._lib_details_[lib] = {
-                    'required_by': set(required_by) if required_by != [''] else set(),
+                    'version': output[VersText : SumText-9].strip(),
+                    'summary': output[SumText : HmPgText-11].strip(),
+                    'home-page': output[HmPgText : AuthText-8].strip(),
+                    'author': output[AuthText : AuthMailText-14].strip(),
+                    'author-email': output[AuthMailText : LicText-9].strip(),
+                    'license': output[LicText : LocText-10].strip(),
+                    'location': output[LocText : ReqText-10].strip(),
                     'requires': set(requires) if requires != [''] else set(),
-                    'version': re.search(r'\d\.\d\.\d', output[output.find("Version: ") + 9:]).group()
+                    'required_by': set(required_by) if required_by != [''] else set()
                 }
             else:
                 self._lib_details_[lib] = {'required_by': set(), 'requires': set()}
